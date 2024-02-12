@@ -24,12 +24,12 @@ func ExamplePrintln() {
 		},
 	}
 
-	ptable.Println(data)
+	ptable.Println(data, ptable.WithIncludeFields("ID", "Name"))
 	// Output:
-	// +----+-------+-----+
-	// | ID | NAME  | AGE |
-	// +----+-------+-----+
-	// |  1 | Bob   |  42 |
-	// |  2 | Alice |  32 |
-	// +----+-------+-----+
+	// +----+-------+
+	// | ID | NAME  |
+	// +----+-------+
+	// |  1 | Bob   |
+	// |  2 | Alice |
+	// +----+-------+
 }

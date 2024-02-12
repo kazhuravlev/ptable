@@ -10,12 +10,30 @@ import (
 )
 
 // Println print slice of structs to the standard output.
-func Println[T any](in []T) {
-	_, _ = FPrintln(os.Stdout, in)
+func Println[T any](in []T, opts ...optionFn) {
+	_, _ = FPrintln(os.Stdout, in, opts...)
 }
 
 // FPrintln print the table to the writer.
-func FPrintln[T any](outWriter io.Writer, in []T) (int, error) {
+func FPrintln[T any](outWriter io.Writer, in []T, opts ...optionFn) (int, error) {
+	var opt options
+	for i := range opts {
+		opts[i](&opt)
+	}
+
+	fieldFilter := func(field string) bool { return true }
+	if len(opt.IncludeFields) != 0 {
+		fieldMap := make(map[string]struct{}, len(opt.IncludeFields))
+		for i := range opt.IncludeFields {
+			fieldMap[opt.IncludeFields[i]] = struct{}{}
+		}
+
+		fieldFilter = func(field string) bool {
+			_, ok := fieldMap[field]
+			return ok
+		}
+	}
+
 	sliceType := reflect.TypeOf(in)
 
 	switch sliceType.Kind() {
@@ -34,12 +52,18 @@ func FPrintln[T any](outWriter io.Writer, in []T) (int, error) {
 	}
 
 	fieldsCount := structType.NumField()
-	fieldsNames := make([]string, fieldsCount)
+	fieldsNames := make([]string, 0, fieldsCount)
+
 	for i := 0; i < fieldsCount; i++ {
-		fieldsNames[i] = structType.Field(i).Name
+		fieldName := structType.Field(i).Name
+		if !fieldFilter(fieldName) {
+			continue
+		}
+
+		fieldsNames = append(fieldsNames, fieldName)
 	}
 
-	header := make(table.Row, fieldsCount)
+	header := make(table.Row, len(fieldsNames))
 	for i := range fieldsNames {
 		header[i] = fieldsNames[i]
 	}
@@ -47,9 +71,9 @@ func FPrintln[T any](outWriter io.Writer, in []T) (int, error) {
 	rows := make([]table.Row, len(in))
 	for i := range in {
 		sliceElemType := reflect.ValueOf(in[i])
-		rows[i] = make(table.Row, fieldsCount)
+		rows[i] = make(table.Row, len(fieldsNames))
 		for ii := range fieldsNames {
-			rows[i][ii] = sliceElemType.Field(ii).Interface()
+			rows[i][ii] = sliceElemType.FieldByName(fieldsNames[ii]).Interface()
 		}
 	}
 
