@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"reflect"
+	"strings"
 )
 
 // Println print slice of structs to the standard output.
@@ -53,14 +54,36 @@ func FPrintln[T any](outWriter io.Writer, in []T, opts ...optionFn) (int, error)
 
 	fieldsCount := structType.NumField()
 	fieldsNames := make([]string, 0, fieldsCount)
+	foundFields := make(map[string]struct{}, fieldsCount)
 
 	for i := 0; i < fieldsCount; i++ {
-		fieldName := structType.Field(i).Name
+		structField := structType.Field(i)
+		fieldName := structField.Name
 		if !fieldFilter(fieldName) {
 			continue
 		}
 
+		if !structField.IsExported() {
+			return 0, fmt.Errorf("field %q is unexported", fieldName)
+		}
+
 		fieldsNames = append(fieldsNames, fieldName)
+		foundFields[fieldName] = struct{}{}
+	}
+
+	if len(opt.IncludeFields) != 0 {
+		missingFields := make([]string, 0)
+		for i := range opt.IncludeFields {
+			if _, ok := foundFields[opt.IncludeFields[i]]; ok {
+				continue
+			}
+
+			missingFields = append(missingFields, opt.IncludeFields[i])
+		}
+
+		if len(missingFields) != 0 {
+			return 0, fmt.Errorf("unknown fields: %s", strings.Join(missingFields, ", "))
+		}
 	}
 
 	header := make(table.Row, len(fieldsNames))
